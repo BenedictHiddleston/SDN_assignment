@@ -18,17 +18,21 @@ import os
 import csv
 
 
+
 log = core.getLogger()
-policyFile = "%s/pox/pox/misc/firewall-policies.csv" % os.environ[ 'HOME' ]  
+policyFile = "%s/pox/pox/misc/firewall-policies.csv" % os.environ[ 'HOME' ]
 
 ''' Add your global variables here ... '''
+
 block=[]
 
 with open(policyFile) as f:
-    next(f)
-    reader = csv.reader(f, delimiter=',')
+    reader = csv.reader(f,delimiter=',') 
+  
     for row in reader:
         block.append(row[1:])
+
+block.pop(0)
 
 
 class Firewall (EventMixin):
@@ -37,23 +41,27 @@ class Firewall (EventMixin):
         self.listenTo(core.openflow)
         log.debug("Enabling Firewall Module")
 
-    def _handle_ConnectionUp (self, event):    
+    def _handle_ConnectionUp (self, event):
         ''' Add your logic here ... '''
-        for sublist in block:
-            blockOne = of.ofp_match()
-            blockOne.dl_src = EthAddr(sublist[0])
-            blockOne.dl_dst = EthAddr(sublist[1])
-
+        for row in block:
+            # drop
+            m = of.ofp_match()
+            m.dl_src = EthAddr(row[0])
+            m.dl_dst = EthAddr(row[1])
+            
+            # send to Openflow switch
             fm = of.ofp_flow_mod()
-            fm.match = blockOne
-            event.connection.send(fm) 
-
+            fm.match = m
+            event.connection.send(fm)
+            
+      
+        
 
     
         log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
 
 def launch ():
     '''
-    Starting the Firewall module
-    '''
+Starting the Firewall module
+'''
     core.registerNew(Firewall)
