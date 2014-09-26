@@ -39,13 +39,33 @@ class VideoSlice (EventMixin):
         (dpid string, src MAC addr, dst MAC addr, port (int)) -> dpid of next switch
         '''
 
-        self.portmap = { 
-                        ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:01'),
-                         EthAddr('00:00:00:00:00:03'), 80): '00-00-00-00-00-03',
-                        
-                        """ Add your mapping logic here"""
-                        
-                        }
+        self.portmap = {('00-00-00-00-00-01', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:03'), 80): 2, #'00-00-00-00-00-03'
+		   ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:04'), 80): 2, #'00-00-00-00-00-03'
+           ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:03'), 80): 2, #'00-00-00-00-00-03'
+           ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:04'), 80): 2, #'00-00-00-00-00-03'
+           ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:03'), 22): 1, #'00-00-00-00-00-03'           
+		   ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:04'), 22): 1, #'00-00-00-00-00-03'
+           ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:03'), 22): 1, #'00-00-00-00-00-03'
+           ('00-00-00-00-00-01', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:04'), 22): 1, #'00-00-00-00-00-03'           
+           
+           ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:03'), 80): 2, #'00-00-00-00-00-04'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:01'), EthAddr('00:00:00:00:00:04'), 80): 2, #'00-00-00-00-00-04'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:03'), 80): 2, #'00-00-00-00-00-04'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:02'), EthAddr('00:00:00:00:00:04'), 80): 2, #'00-00-00-00-00-04'
+
+           ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:01'), 80): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:01'), 80): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:02'), 80): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-03', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:02'), 80): 1, #'00-00-00-00-00-01'
+
+           ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:01'), 80): 2, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:01'), 80): 2, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:02'), 80): 2, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:02'), 80): 2, #'00-00-00-00-00-01'
+           ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:01'), 22): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:01'), 22): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:03'), EthAddr('00:00:00:00:00:02'), 22): 1, #'00-00-00-00-00-01'
+		   ('00-00-00-00-00-04', EthAddr('00:00:00:00:00:04'), EthAddr('00:00:00:00:00:02'), 22): 1} #'00-00-00-00-00-01'
 
     def _handle_LinkEvent (self, event):
         l = event.link
@@ -88,11 +108,31 @@ class VideoSlice (EventMixin):
                           packet.dst, dpid_to_str(event.dpid), event.port)
 
                 try:
-                    """ Add your logic here""""
-                    
-
+                    if event.parsed.find('arp') or event.parsed.find('icmp'):
+                        #log.debug("ARP packet type has no transport ports, flooding.")
+                        install_fwdrule(event,packet,of.OFPP_FLOOD)
+                    elif event.parsed.find('tcp'):
+                        if tcpp.dstport == 80:
+                            outport = self.portmap[(this_dpid, EthAddr(packet.src),EthAddr(packet.dst), tcpp.dstport)]
+                            install_fwdrule(event, packet, outport)
+                        elif tcpp.srcport == 80:
+                            outport = self.portmap[(this_dpid, EthAddr(packet.src),EthAddr(packet.dst), tcpp.srcport)]
+                            install_fwdrule(event, packet, outport)
+                        elif tcpp.dstport == 22:
+                            outport = self.portmap[(this_dpid, EthAddr(packet.src),EthAddr(packet.dst), tcpp.dstport)]
+                            install_fwdrule(event, packet, outport)                            
+                        elif tcpp.srcport == 22:
+                            outport = self.portmap[(this_dpid, EthAddr(packet.src),EthAddr(packet.dst), tcpp.srcport)]
+                            install_fwdrule(event, packet, outport)                            
+                            
+                            
+                        log.debug("Sw: %s adding rule Src: %s Dst: %s Dport: %s out port: %d", this_dpid, packet.src, packet.dst, tcpp.dstport, outport)
+                
+                except KeyError:
+                    log.debug("TCP packet type has no transport ports, flooding.")
+                    install_fwdrule(event,packet,of.OFPP_FLOOD)
                 except AttributeError:
-                    log.debug("packet type has no transport ports, flooding")
+                    log.debug("Generic packet type has no transport ports, flooding.")
 
                     # flood and install the flow table entry for the flood
                     install_fwdrule(event,packet,of.OFPP_FLOOD)
